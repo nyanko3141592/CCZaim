@@ -113,7 +113,7 @@ def get_money(session, **params):
 
 
 def get_all_money(session, start_date=None, end_date=None):
-    """全件取得（ページネーション自動処理）"""
+    """全件取得（ページネーション自動処理）+ マスタ結合"""
     all_items = []
     page = 1
     while True:
@@ -128,7 +128,26 @@ def get_all_money(session, start_date=None, end_date=None):
             break
         all_items.extend(items)
         page += 1
+    # mapping=1 でも名前が返らない場合があるため、マスタから補完
+    if all_items and "category_name" not in all_items[0]:
+        all_items = enrich_items(session, all_items)
     return all_items
+
+
+def enrich_items(session, items):
+    """カテゴリ・ジャンルマスタを取得して取引データに名前を付与"""
+    cat_data = get_categories(session)
+    genre_data = get_genres(session)
+
+    cat_map = {c["id"]: c["name"] for c in cat_data.get("categories", [])}
+    genre_map = {g["id"]: g["name"] for g in genre_data.get("genres", [])}
+
+    for item in items:
+        if "category_name" not in item:
+            item["category_name"] = cat_map.get(item.get("category_id"), "")
+        if "genre_name" not in item:
+            item["genre_name"] = genre_map.get(item.get("genre_id"), "")
+    return items
 
 
 def get_categories(session):
@@ -289,7 +308,11 @@ def find_uncategorized(items):
     return [
         item for item in items
         if item.get("mode") == "payment"
-        and (not item.get("category_id") or item.get("category_name") in ("未分類", ""))
+        and (
+            not item.get("category_id")
+            or item.get("category_name") in ("未分類", "")
+            or str(item.get("category_name", "")).strip() == ""
+        )
     ]
 
 
@@ -357,7 +380,10 @@ def cmd_money(args):
         print(json.dumps(get_money(s, **params), indent=2, ensure_ascii=False))
     else:
         data = get_money(s, **params)
-        for item in data.get("money", []):
+        items = data.get("money", [])
+        if items and "category_name" not in items[0]:
+            items = enrich_items(s, items)
+        for item in items:
             print(format_money_item(item))
 
 

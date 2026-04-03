@@ -326,8 +326,8 @@ def test_delete_money_params():
 def test_get_all_money_pagination():
     mock_session = MagicMock()
 
-    page1 = {"money": [{"id": i, "mode": "payment", "amount": 100, "date": "2024-03-01"} for i in range(100)]}
-    page2 = {"money": [{"id": i + 100, "mode": "payment", "amount": 100, "date": "2024-03-01"} for i in range(50)]}
+    page1 = {"money": [{"id": i, "mode": "payment", "amount": 100, "date": "2024-03-01", "category_name": "食費", "genre_name": "外食"} for i in range(100)]}
+    page2 = {"money": [{"id": i + 100, "mode": "payment", "amount": 100, "date": "2024-03-01", "category_name": "食費", "genre_name": "外食"} for i in range(50)]}
     page3 = {"money": []}
 
     mock_session.get.return_value.raise_for_status = MagicMock()
