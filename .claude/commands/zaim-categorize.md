@@ -1,33 +1,74 @@
-未分類の取引を自動分類します。
+未分類の取引を1件ずつインタラクティブに分類します。AskUserQuestion を活用して効率よく進めます。
 
 ## 手順
 
-1. `python zaim_client.py uncategorized` で未分類取引を取得
-2. `python zaim_client.py categories` と `python zaim_client.py genres` でカテゴリ・ジャンルマスタを取得
-3. 各取引の `place`（店名）や `comment` から適切なカテゴリ・ジャンルを推定
-4. 推定結果をユーザーに一覧表示して確認を求める:
+1. `python3 zaim_client.py uncategorized` で未分類取引を取得
+2. `python3 zaim_client.py categories` と `python3 zaim_client.py genres` でカテゴリ・ジャンルマスタを取得
+3. 未分類が0件なら「未分類の取引はありません」と表示して終了
+
+### 分類フロー（1件ずつ）
+
+各取引について、店名・金額・日付・コメントから最適カテゴリを推定し、**AskUserQuestion で確認する**。
+
+#### ステップA: カテゴリ選択
+
+AskUserQuestion を使い、AIが推定したカテゴリを第1選択肢（Recommended）として提示。
+残りの選択肢は金額帯・店名から可能性の高い候補を2〜3個並べる。
 
 ```
-## 未分類取引の分類提案
-
-| # | 日付 | 金額 | 店名/メモ | 提案カテゴリ | 提案ジャンル |
-|---|---|---|---|---|---|
-| 1 | 2024-03-15 | ¥1,200 | セブンイレブン | 食費 | コンビニ |
-| 2 | 2024-03-16 | ¥3,500 | Amazon | 趣味・娯楽 | ガジェット |
-
-上記の分類でよろしいですか？修正があれば番号で指定してください。
+question: "「{店名}」¥{金額}（{日付}）のカテゴリは？"
+header: "カテゴリ"
+options:
+  - label: "{推定カテゴリ}（Recommended）"
+    description: "店名「{店名}」から推定"
+  - label: "{候補2}"
+    description: "{理由}"
+  - label: "{候補3}"
+    description: "{理由}"
+  - label: "スキップ"
+    description: "あとで分類する"
 ```
 
-5. ユーザーが承認したら、以下のPythonコードで一括更新:
+#### ステップB: ジャンル選択
+
+カテゴリが決まったら、そのカテゴリ配下のジャンルを AskUserQuestion で選ばせる。
+
+```
+question: "{カテゴリ} のジャンルは？"
+header: "ジャンル"
+options:
+  - label: "{推定ジャンル}（Recommended）"
+  - label: "{ジャンル候補2}"
+  - label: "{ジャンル候補3}"
+```
+
+#### ステップC: 更新実行
 
 ```python
-# zaim_client.py の update_payment を使って更新
 import zaim_client
 s = zaim_client.get_session()
 zaim_client.update_payment(s, money_id, category_id=..., genre_id=...)
 ```
 
-## 分類ルール
+更新したら「{店名} → {カテゴリ}/{ジャンル} に分類しました」と表示して次の取引へ。
+
+### 一括モード
+
+未分類が5件以上ある場合は、最初に AskUserQuestion で進め方を聞く:
+
+```
+question: "未分類が{N}件あります。どう進めますか？"
+header: "分類方法"
+options:
+  - label: "1件ずつ確認（Recommended）"
+    description: "各取引のカテゴリをひとつずつ選択"
+  - label: "AI提案を一括表示"
+    description: "全件のAI提案を表で見てからまとめて承認"
+  - label: "高額順に上位5件だけ"
+    description: "金額が大きいものから優先的に分類"
+```
+
+### 分類ルール（AI推定用）
 
 よくある店名→カテゴリのマッピング:
 - コンビニ（セブン、ファミマ、ローソン）→ 食費 > コンビニ
@@ -35,8 +76,10 @@ zaim_client.update_payment(s, money_id, category_id=..., genre_id=...)
 - ドラッグストア（マツキヨ、ウエルシア）→ 日用品 > ドラッグストア
 - カフェ（スタバ、ドトール、タリーズ）→ 食費 > カフェ
 - 交通系（Suica、PASMO）→ 交通費 > 電車
-- Amazon → 内容に応じて判断（金額やコメントから推定）
+- Amazon → 金額・コメントで判断（書籍/ガジェット/日用品を区別）
+- 飲食店名 → 食費 > 外食
+- 薬局・病院 → 健康・医療
 
 ## 注意
-- 必ずユーザーに確認してから更新する
-- 自信がない分類は「?」マークをつけて確認を促す
+- スキップされた取引は最後にまとめてリマインド
+- 更新は1件ずつ即座に実行（バッチではなくリアルタイム）
