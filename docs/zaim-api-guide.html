@@ -3,15 +3,16 @@
 <p>「<strong>Zaim の API って、実際どこまでできるの？</strong>」</p>
 <p>MoneyForward を使っていて、値上げやカスタマイズ性の限界にモヤモヤしている人。Zaim への移行を検討しているけど、API の中身がよく分からなくて踏み出せない人。あるいは、家計簿データをプログラムから自由に触りたいと思っている人。</p>
 <p>この記事はそんなあなたに向けて書いています。</p>
-<p>Zaim API の公式ドキュメントはログイン後にしか見られず、情報が散らばっていて全体像を掴みにくい。そこで、<strong>全エンドポイントを実際に叩いて検証した結果</strong>を元に、「何ができて、何ができないのか」を一つの記事にまとめました。</p>
+<p>Zaim API の公式ドキュメントはログイン後にしか見られず、情報が散らばっていて全体像を掴みにくい。そこで、<a href="https://github.com/nyanko3141592/CCZaim">CCZaim</a>（Claude Code から Zaim を操作するOSSツールキット）の開発ドキュメントとして、「何ができて、何ができないのか」を一つの記事にまとめました。</p>
 <p>パラメータの型、レスポンスのフィールド名、ページネーションの挙動、ハマりどころまで、すべて2026年4月時点の実測値です。「API があるらしいけど、本当に使えるの？」という疑問に、具体的なコードと実データで答えます。</p>
+<blockquote><strong>免責事項</strong>: この記事は CCZaim の開発ドキュメントであり、Zaim の公式ドキュメントではありません。API の仕様は予告なく変更される場合があります。正確な情報は <a href="https://dev.zaim.net/">Zaim Developers Center</a> の公式ドキュメントをご確認ください。</blockquote>
 <hr>
 <h2>なぜ Zaim なのか</h2>
 <p>家計簿アプリは色々ある。MoneyForward、Zaim、Moneytree...。</p>
 <p>自分はMoneyForwardのプレミアムに3年以上年払いで課金していた。銀行・クレカの自動連携は便利だったが、致命的な問題があった。</p>
 <p><strong>API が公開されていない。</strong></p>
 <p>プレミアムに課金しても、自分のデータをプログラムから触れない。自動仕分けは微妙だし、「管理オタク」のニーズを満たしてくれない。FP無料面談も受けたが、自分でFP資格を取った後では正直物足りなかった。</p>
-<p>Zaim に乗り換えた最大の理由は<strong>API があること</strong>。Web UIは正直ダサいが、APIがあるなら自分でUIを作ればいい。データさえ取れれば、分析はClaude Codeに任せられる。</p>
+<p>Zaim に乗り換えた最大の理由は<strong>API があること</strong>。Web UIはシンプルだが、APIがあるなら自分好みのインターフェースを作ればいい。データさえ取れれば、分析はClaude Codeに任せられる。</p>
 <p>移行してみたら、APIで未分類項目の自動仕分けができて最高だった。MoneyForwardで手動でやっていた作業が一瞬で終わる。</p>
 <blockquote>MoneyForward から Zaim への移行は、CSV をダウンロードして Claude Code に「Zaim の連携フォーマットに変換して」と頼めば一発。</blockquote>
 <h2>Zaim API の基本情報</h2>
@@ -612,7 +613,7 @@ while True:
 <ul>
 <li><strong>項目</strong>: Web UI</li>
 <li><strong>MoneyForward</strong>: きれい</li>
-<li><strong>Zaim</strong>: 正直ダサい（でもAPIがあれば問題ない）</li>
+<li><strong>Zaim</strong>: シンプル（APIがあれば自分好みにできる）</li>
 </ul>
 <ul>
 <li><strong>項目</strong>: データエクスポート</li>

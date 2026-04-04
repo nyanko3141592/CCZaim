@@ -1,0 +1,376 @@
+<h1>cczaim-guide.md</h1>
+<h2>きっかけ</h2>
+<p>MoneyForwardのプレミアムに3年以上課金していた。年払いで。</p>
+<p>銀行・クレカの自動連携は便利だった。でも不満が溜まっていた:</p>
+<ul>
+<li><strong>API が公開されていない</strong> — 自分のデータなのにプログラムから触れない</li>
+<li><strong>自動仕分けが微妙</strong> — 結局手動で直す羽目になる</li>
+<li><strong>高い割にViewer以上の価値がない</strong> — 管理オタクのニーズを満たさない</li>
+<li><strong>FP無料面談</strong> — FP資格を自分で取った後では物足りない</li>
+</ul>
+<p>ある日気づいた。Claude Code に CSV を渡して話すだけで、MoneyForward のプレミアム機能より遥かに高度な分析ができる。</p>
+<p>じゃあ、<strong>API がある家計簿アプリ + Claude Code</strong> でよくないか？</p>
+<p>Zaim に乗り換えた。API で未分類項目を自動仕分けできて最高だった。</p>
+<p>そして作ったのが CCZaim。</p>
+<h2>CCZaim とは</h2>
+<p><strong>Zaim API のクライアント + Claude Code のスラッシュコマンド</strong>を1つのリポジトリにまとめたもの。</p>
+<pre><code>
+クローン → API キー設定 → 認証 → あとは Claude に話しかけるだけ
+</code></pre>
+<p>記録は Zaim アプリに任せる。分析は Claude Code に任せる。API で繋ぐ。</p>
+<h3>何ができる？</h3>
+<ul>
+<li><strong>やりたいこと</strong>: 今月の家計を一目で把握</li>
+<li><strong>コマンド</strong>: <code>/dashboard</code></li>
+</ul>
+<ul>
+<li><strong>やりたいこと</strong>: 「先月のコンビニ代」を調べる</li>
+<li><strong>コマンド</strong>: <code>/zaim-search</code></li>
+</ul>
+<ul>
+<li><strong>やりたいこと</strong>: 「ランチ1200円」を記録する</li>
+<li><strong>コマンド</strong>: <code>/zaim-add</code></li>
+</ul>
+<ul>
+<li><strong>やりたいこと</strong>: 未分類の取引を整理する</li>
+<li><strong>コマンド</strong>: <code>/zaim-categorize</code></li>
+</ul>
+<ul>
+<li><strong>やりたいこと</strong>: 月次・四半期レポートを作る</li>
+<li><strong>コマンド</strong>: <code>/zaim-report</code></li>
+</ul>
+<ul>
+<li><strong>やりたいこと</strong>: 支出の見直し・貯蓄目標を相談</li>
+<li><strong>コマンド</strong>: <code>/zaim-fp</code></li>
+</ul>
+<ul>
+<li><strong>やりたいこと</strong>: カテゴリ別の予算を管理</li>
+<li><strong>コマンド</strong>: <code>/zaim-budget</code></li>
+</ul>
+<ul>
+<li><strong>やりたいこと</strong>: 口座一覧を確認</li>
+<li><strong>コマンド</strong>: <code>/zaim-accounts</code></li>
+</ul>
+<hr>
+<h2>セットアップ</h2>
+<h3>必要なもの</h3>
+<ul>
+<li>Python 3.10 以上</li>
+<li><a href="https://zaim.net/">Zaim アカウント</a></li>
+<li><a href="https://dev.zaim.net/">Zaim Developer アカウント</a>（API キー取得用）</li>
+<li><a href="https://claude.ai/code">Claude Code</a></li>
+</ul>
+<h3>MoneyForward から移行する場合</h3>
+<p>MoneyForward から CSV エクスポート → Claude Code に「Zaim の連携フォーマットに変換して」と頼めば一発で変換できる。構えるほどの作業ではない。</p>
+<h3>手順</h3>
+<h4>1. クローン</h4>
+<pre><code>
+git clone https://github.com/nyanko3141592/CCZaim.git
+cd CCZaim
+</code></pre>
+<h4>2. 依存パッケージインストール</h4>
+<pre><code>
+pip3 install -r requirements.txt
+</code></pre>
+<p><code>requests-oauthlib</code> と <code>python-dotenv</code> の2つだけ。</p>
+<h4>3. Zaim Developer Center でアプリ登録</h4>
+<p>1. <a href="https://dev.zaim.net/">dev.zaim.net</a> にアクセス</p>
+<p>2. Zaim アカウントでログイン</p>
+<p>3. 「新しいアプリケーションを登録」</p>
+<p>4. アプリ名は何でもOK（例: <code>CCZaim</code>）</p>
+<p>5. コールバック URL は <code>http://localhost</code></p>
+<p>6. 登録後、<strong>Consumer Key</strong> と <strong>Consumer Secret</strong> をメモ</p>
+<blockquote>Zaim の Developer 登録自体は無料。課金不要。</blockquote>
+<h4>4. 環境変数を設定</h4>
+<pre><code>
+cp .env.example .env
+</code></pre>
+<p><code>.env</code> を開いて Key / Secret を貼り付ける:</p>
+<pre><code>
+ZAIM_CONSUMER_KEY=ここにConsumerKey
+ZAIM_CONSUMER_SECRET=ここにConsumerSecret
+</code></pre>
+<h4>5. OAuth 認証</h4>
+<pre><code>
+python3 zaim_client.py auth
+</code></pre>
+<p>ブラウザが開く → Zaim にログイン → 「許可」 → リダイレクトされた URL をコピー → ターミナルに貼り付け。</p>
+<p><code>tokens.json</code> が保存される（<code>.gitignore</code> 済み）。</p>
+<h4>6. 動作確認</h4>
+<pre><code>
+python3 zaim_client.py user     # ユーザー情報
+python3 zaim_client.py money    # 最近の取引
+</code></pre>
+<p>データが出たら完了。</p>
+<hr>
+<h2>各コマンドの詳細</h2>
+<h3><code>/dashboard</code> — 今月の家計ダッシュボード</h3>
+<pre><code>
+&gt; /dashboard
+</code></pre>
+<p>今月の全取引を集計して表示:</p>
+<ul>
+<li><strong>収支サマリー</strong>: 収入・支出・差引</li>
+<li><strong>カテゴリ別支出</strong>: 棒グラフ付きランキング</li>
+<li><strong>高額支出 TOP5</strong></li>
+<li><strong>日別推移</strong></li>
+<li><strong>未分類件数</strong></li>
+</ul>
+<p>表示後、Claude が次のアクションを提案する:</p>
+<pre><code>
+ダッシュボードを表示しました。次に何をしますか？
+○ 特定カテゴリを深堀り
+○ 先月と比較する
+○ 未分類を整理する
+○ 終了
+</code></pre>
+<p>選択肢を選ぶだけでどんどん深堀りできる。MoneyForward の「分析」タブより遥かに柔軟。</p>
+<blockquote>ちなみに Zaim の支出データを Claude Code に分析させたら「Claude Code の利用代金が高いので削りましょう」とアドバイスされた。お前が言うな。</blockquote>
+<hr>
+<h3><code>/zaim-search</code> — 取引データ検索</h3>
+<p>自然言語で検索できる。</p>
+<pre><code>
+&gt; /zaim-search
+&gt; 先月のコンビニ支出
+</code></pre>
+<p>こんな聞き方もOK:</p>
+<ul>
+<li>「3月の食費を調べて」</li>
+<li>「今月1万円以上の支出」</li>
+<li>「直近の Amazon 購入」</li>
+<li>「去年の交際費」</li>
+</ul>
+<p>結果は表形式 + 合計サマリー。</p>
+<pre><code>
+| 日付 | カテゴリ | ジャンル | 金額 | 場所 | メモ |
+|---|---|---|---|---|---|
+| 2024-03-05 | 食費 | コンビニ | ¥580 | セブンイレブン | |
+| 2024-03-12 | 食費 | コンビニ | ¥1,200 | ファミマ | お弁当 |
+
+合計: ¥4,280（8件）
+</code></pre>
+<hr>
+<h3><code>/zaim-add</code> — 支出・収入の登録</h3>
+<pre><code>
+&gt; /zaim-add
+&gt; 今日ランチで1200円使った
+</code></pre>
+<p>Claude が入力を解析して確認表示:</p>
+<pre><code>
+以下の内容で登録します:
+
+| 項目 | 内容 |
+|---|---|
+| 種別 | 支出 |
+| 金額 | ¥1,200 |
+| 日付 | 2024-04-04 |
+| カテゴリ | 食費 |
+| ジャンル | 外食 |
+
+よろしいですか？
+</code></pre>
+<p>確認してから登録。誤登録の心配なし。</p>
+<hr>
+<h3><code>/zaim-categorize</code> — 未分類取引の対話的分類</h3>
+<p><strong>これが Zaim + Claude Code の真骨頂。</strong> MoneyForward で手動でやっていた仕分けが、選択肢を選ぶだけで終わる。</p>
+<pre><code>
+&gt; /zaim-categorize
+</code></pre>
+<h4>まず進め方を聞かれる</h4>
+<pre><code>
+未分類が12件あります。どう進めますか？
+○ 1件ずつ確認（Recommended）
+○ AI提案を一括表示
+○ 高額順に上位5件だけ
+</code></pre>
+<h4>1件ずつの分類フロー</h4>
+<p>店名と金額からAIがカテゴリを推定、選択肢で確認:</p>
+<pre><code>
+「セブンイレブン」¥580（2024-03-05）のカテゴリは？
+○ 食費（Recommended） — 店名から推定
+○ 日用品 — コンビニで日用品を買った場合
+○ スキップ — あとで分類する
+</code></pre>
+<p>カテゴリを選ぶと次はジャンル:</p>
+<pre><code>
+食費 のジャンルは？
+○ コンビニ（Recommended）
+○ 食料品
+○ その他食費
+</code></pre>
+<p>選択するとすぐに Zaim が更新され、次の取引へ。テンポよく進む。</p>
+<blockquote>API で未登録の店舗の場合は辛いこともある。そういう時は Claude Code のデスクトップ版から Web UI を直接触ってもらうという手もある。</blockquote>
+<hr>
+<h3><code>/zaim-report</code> — 期間レポート生成</h3>
+<pre><code>
+&gt; /zaim-report
+</code></pre>
+<h4>期間の選択</h4>
+<pre><code>
+どの期間のレポートを作りますか？
+○ 先月（Recommended）
+○ 今月（途中経過）
+○ 直近3ヶ月
+○ 今年
+</code></pre>
+<h4>観点の選択（複数選択可）</h4>
+<pre><code>
+どの観点を重視しますか？
+☐ カテゴリ別分析（Recommended）
+☐ 前期比較
+☐ 高額支出の洗い出し
+☐ 日別パターン分析
+</code></pre>
+<p>選んだ内容に応じてレポートが生成される:</p>
+<ul>
+<li><strong>総括</strong>: 収入・支出・差引・件数</li>
+<li><strong>カテゴリ別支出</strong>: 割合付き棒グラフ</li>
+<li><strong>前期比較</strong>: 増減と増減率</li>
+<li><strong>高額支出一覧</strong></li>
+<li><strong>日別パターン</strong>: 曜日別平均グラフ</li>
+<li><strong>AIの所感</strong>: トレンドや改善ポイント</li>
+</ul>
+<p>表示後もフォローアップの選択肢が出る。FP相談や予算設定への導線がある。</p>
+<hr>
+<h3><code>/zaim-fp</code> — FP 相談</h3>
+<p>ファイナンシャルプランナー的な視点で、実データに基づいたアドバイスをもらえる。</p>
+<pre><code>
+&gt; /zaim-fp
+</code></pre>
+<h4>4つの相談メニュー</h4>
+<pre><code>
+どんな相談をしますか？
+○ 支出の見直し（Recommended）
+○ 貯蓄・投資の目標設定
+○ 固定費チェック
+○ ライフイベント試算
+</code></pre>
+<h4>支出の見直し</h4>
+<p>実データから削減余地のあるカテゴリ TOP3 を特定。ジャンル別内訳を見て、具体的な削減目標を対話的に設定:</p>
+<pre><code>
+食費が¥38,200（全体の32%）です。内訳を見ますか？
+○ ジャンル別の内訳を見る（Recommended）
+○ 日別の推移を見る
+○ 次のカテゴリへ
+</code></pre>
+<pre><code>
+食費の目標を設定しますか？
+○ 先月比10%削減（¥34,400/月）（Recommended）
+○ 具体的な金額を設定
+○ 目標は設定しない
+</code></pre>
+<h4>貯蓄・投資の目標設定</h4>
+<p>直近3ヶ月の収支から貯蓄余力を自動計算。目標金額と期間を設定してシミュレーション。</p>
+<h4>固定費チェック</h4>
+<p>毎月繰り返し発生している支出を自動検出。通信費・サブスク・保険料を一覧表示し、複数選択で見直し対象を選べる。</p>
+<h4>ライフイベント試算</h4>
+<p>引っ越し・転職・結婚などの大きな出費を、現在の収支データに基づいて試算。</p>
+<blockquote>MoneyForward の FP 面談は予約して時間を取って...という手間がかかった。Claude Code なら <code>/zaim-fp</code> の一言で即座に始まる。しかも自分のリアルなデータに基づいている。</blockquote>
+<hr>
+<h3><code>/zaim-budget</code> — カテゴリ別予算管理</h3>
+<p>Zaim API には予算機能がない。CCZaim がローカルの <code>budget.json</code> で独自に管理する。</p>
+<pre><code>
+&gt; /zaim-budget
+</code></pre>
+<h4>予算消化チェック</h4>
+<pre><code>
+## 今月の予算消化状況（4/15時点）
+
+| カテゴリ | 予算 | 実績 | 残り | 消化率 |
+|---|---|---|---|---|
+| 食費 | ¥40,000 | ¥28,500 | ¥11,500 | 71% ⚠️ ペース超過 |
+| 日用品 | ¥10,000 | ¥3,200 | ¥6,800 | 32% ✅ 順調 |
+| 趣味 | ¥15,000 | ¥15,800 | -¥800 | 105% 🔴 超過！ |
+</code></pre>
+<p>超過があれば対応を聞かれる:</p>
+<pre><code>
+趣味が¥800超過しています。どうしますか？
+○ 内訳を確認する（Recommended）
+○ 今月は許容する
+○ 予算を増額する
+</code></pre>
+<h4>予算の設定</h4>
+<p>過去の実績ベース・収入からの逆算・手入力の3方式。実績ベースなら、直近3ヶ月の平均からカテゴリごとに提案してくれる。</p>
+<hr>
+<h3><code>/zaim-accounts</code> — 口座一覧</h3>
+<pre><code>
+&gt; /zaim-accounts
+</code></pre>
+<p>銀行・クレカ・電子マネーの一覧を表示。</p>
+<hr>
+<h2>CLI 単体でも使える</h2>
+<p>Claude Code なしでも <code>zaim_client.py</code> はコマンドラインツールとして動く。</p>
+<pre><code>
+python3 zaim_client.py money                                    # 最近の取引
+python3 zaim_client.py money --start 2024-01-01 --end 2024-03-31 --all  # 全件取得
+python3 zaim_client.py summary --start 2024-01-01               # 月別サマリー
+python3 zaim_client.py dashboard                                # 今月ダッシュボード（JSON）
+python3 zaim_client.py uncategorized                            # 未分類の取引
+python3 zaim_client.py categories                               # カテゴリマスタ
+python3 zaim_client.py genres                                   # ジャンルマスタ
+python3 zaim_client.py accounts                                 # 口座マスタ
+</code></pre>
+<p>ライブラリとしても使える:</p>
+<pre><code>
+import zaim_client
+
+s = zaim_client.get_session()
+items = zaim_client.get_all_money(s, "2024-03-01", "2024-03-31")
+
+summary = zaim_client.monthly_summary(items)
+breakdown = zaim_client.category_breakdown(items)
+</code></pre>
+<hr>
+<h2>ファイル構成</h2>
+<pre><code>
+CCZaim/
+├── zaim_client.py              # Zaim API クライアント（コア）
+├── CLAUDE.md                   # Claude Code プロジェクト設定
+├── README.md
+├── .claude/commands/           # スラッシュコマンド（9個）
+│   ├── dashboard.md
+│   ├── zaim-search.md
+│   ├── zaim-add.md
+│   ├── zaim-categorize.md
+│   ├── zaim-report.md
+│   ├── zaim-fp.md
+│   ├── zaim-budget.md
+│   ├── zaim-accounts.md
+│   └── zaim-setup.md
+├── docs/
+│   ├── zaim-api-guide.md       # Zaim API 解説記事
+│   └── cczaim-guide.md         # この記事
+├── tests/
+│   └── test_client.py          # テスト（20件）
+├── requirements.txt
+├── .env.example
+├── .gitignore
+└── LICENSE                     # MIT
+</code></pre>
+<hr>
+<h2>よくある質問</h2>
+<h3>Q. Zaim の有料プラン（プレミアム）は必要？</h3>
+<p>不要。API は無料プランでも使える。</p>
+<h3>Q. MoneyForward からの移行は大変？</h3>
+<p>CSV ダウンロード → Claude Code に変換させるだけ。30分もかからない。</p>
+<h3>Q. API キーが漏れたらどうなる？</h3>
+<p>家計簿データに第三者がアクセスできてしまう。<code>.env</code> と <code>tokens.json</code> は <code>.gitignore</code> 済みだが、取り扱いには注意。わかりやすいから.envにしたけど各自ちゃんと設定をしよう。</p>
+<h3>Q. Zaim アプリ側にも反映される？</h3>
+<p>API で行った操作は即座に反映される。</p>
+<h3>Q. 自分でスラッシュコマンドを追加できる？</h3>
+<p><code>.claude/commands/</code> にマークダウンファイルを置くだけ。<code>zaim_client.py</code> の関数を使えばコードもほぼ不要。</p>
+<h3>Q. Web UI がシンプルすぎない？</h3>
+<p><strong>API があるので問題ない。</strong> 自分好みの UI を作ればいいし、Claude Code 経由なら UI すら不要。データさえ取れればあとは AI の仕事。</p>
+<hr>
+<h2>まとめ</h2>
+<p>MoneyForward が悪いサービスとは思わない。でも「自分のデータを自分のプログラムで触りたい」人にとっては、APIがないのは致命的だった。</p>
+<p>Zaim + Claude Code にしてから:</p>
+<ul>
+<li>未分類の仕分けが選択肢を選ぶだけで完了</li>
+<li>「先月いくら使った？」に即座に回答</li>
+<li>FP相談がコマンド一発で始まる</li>
+<li>予算管理も対話的にできる</li>
+<li>Claude Code に支出を分析させたら自分の利用代金を削れと言われる</li>
+</ul>
+<p>家計簿の「入力」は Zaim アプリに任せて、「分析」は Claude Code に任せる。</p>
+<p>リポジトリ: <a href="https://github.com/nyanko3141592/CCZaim">github.com/nyanko3141592/CCZaim</a></p>
