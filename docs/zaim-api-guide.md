@@ -83,6 +83,7 @@ OAuth 1.0a の 3-legged フロー。一回やれば終わり。
 |---|---|
 | `/v2/home/money/payment/{id}` | 支出の削除 |
 | `/v2/home/money/income/{id}` | 収入の削除 |
+| `/v2/home/money/transfer/{id}` | 振替の削除 |
 
 **要するに CRUD 全部揃っている。** MoneyForward にはこれがない。
 
@@ -120,7 +121,7 @@ GET /v2/home/money?mapping=1&start_date=2024-03-01&end_date=2024-03-31&limit=100
 | `type` | string | - | `pay`（支出）/ `income`（収入）/ `transfer`（振替）で絞り込み |
 | `start_date` | string | - | 取得開始日。`YYYY-MM-DD` 形式 |
 | `end_date` | string | - | 取得終了日。`YYYY-MM-DD` 形式 |
-| `limit` | int | - | 1リクエストあたりの取得件数（実測ではデフォルト20程度、最大100程度。公式ドキュメント非公開のため正確な値は要確認） |
+| `limit` | int | - | 1リクエストあたりの取得件数。指定しない場合は全件返る模様（2026年4月実測）。ページネーション時は `100` 程度を指定するのが無難 |
 | `page` | int | - | ページ番号。`limit` と組み合わせてページネーションに使う |
 
 #### レスポンス（`mapping=1` 指定時、またはマスタ結合後）
@@ -143,6 +144,7 @@ GET /v2/home/money?mapping=1&start_date=2024-03-01&end_date=2024-03-31&limit=100
       "place": "スターバックス",
       "comment": "ラテ",
       "name": "",
+      "place_uid": "",
       "receipt_id": 0,
       "active": 1,
       "created": "2024-03-20 12:30:00",
@@ -170,6 +172,7 @@ GET /v2/home/money?mapping=1&start_date=2024-03-01&end_date=2024-03-31&limit=100
 | `place` | string | 店名・場所 |
 | `comment` | string | メモ |
 | `name` | string | 品名 |
+| `place_uid` | string | 店舗のUID（空文字の場合が多い） |
 | `receipt_id` | int | レシートID（レシート撮影時に付与） |
 | `active` | int | 有効フラグ（通常は `1`） |
 | `created` | string | 作成日時 |
@@ -258,7 +261,7 @@ Zaim に登録されている口座（銀行口座・クレジットカード・
 | `place` | string | 任意 | 店名・場所 |
 | `name` | string | 任意 | 品名 |
 
-> **注意**: POST リクエストではパラメータを URL クエリではなく **リクエストボディ**（form data）として送る。Python なら `params=` ではなく `data=` を使う。
+> **注意**: POST リクエストではパラメータを **リクエストボディ**（form data）として送るのが正式。Python なら `data=` を使う。`params=`（URLクエリ）でも動作する場合があるが、OAuth 1.0a の署名の一貫性のためにも `data=` を推奨。
 
 ### 収入の登録 — `POST /v2/home/money/income`
 
@@ -280,8 +283,8 @@ Zaim に登録されている口座（銀行口座・クレジットカード・
 |---|---|---|---|
 | `amount` | int | **必須** | 金額 |
 | `date` | string | **必須** | 日付 |
-| `from_account_id` | int | 任意 | 出金元の口座ID |
-| `to_account_id` | int | 任意 | 入金先の口座ID |
+| `from_account_id` | int | **必須**（実質） | 出金元の口座ID。口座IDなしだと400エラーになる（2026年4月実測） |
+| `to_account_id` | int | **必須**（実質） | 入金先の口座ID |
 | `comment` | string | 任意 | メモ |
 
 ### 更新 — `PUT /v2/home/money/{mode}/{id}`
@@ -346,10 +349,10 @@ while True:
     page += 1
 ```
 
-### 3. POST は body で送る
+### 3. POST は body で送るのが安全
 
 GET はクエリパラメータ、POST/PUT はリクエストボディ。
-Python の `requests` なら `params=` ではなく `data=` を使う。ここでハマる人が多い。
+Python の `requests` なら `data=` を使うのが推奨。`params=` でも動作する場合があるが、OAuth 署名の安定性のために `data=` が無難。
 
 ### 4. カテゴリ ID はハードコードしない
 

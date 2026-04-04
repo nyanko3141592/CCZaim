@@ -1,0 +1,630 @@
+<h1>zaim-api-guide.md</h1>
+<h2>なぜ Zaim なのか</h2>
+<p>家計簿アプリは色々ある。MoneyForward、Zaim、Moneytree...。</p>
+<p>自分はMoneyForwardのプレミアムに3年以上年払いで課金していた。銀行・クレカの自動連携は便利だったが、致命的な問題があった。</p>
+<p><strong>API が公開されていない。</strong></p>
+<p>プレミアムに課金しても、自分のデータをプログラムから触れない。自動仕分けは微妙だし、「管理オタク」のニーズを満たしてくれない。FP無料面談も受けたが、自分でFP資格を取った後では正直物足りなかった。</p>
+<p>Zaim に乗り換えた最大の理由は<strong>API があること</strong>。Web UIは正直ダサいが、APIがあるなら自分でUIを作ればいい。データさえ取れれば、分析はClaude Codeに任せられる。</p>
+<p>移行してみたら、APIで未分類項目の自動仕分けができて最高だった。MoneyForwardで手動でやっていた作業が一瞬で終わる。</p>
+<blockquote>MoneyForward から Zaim への移行は、CSV をダウンロードして Claude Code に「Zaim の連携フォーマットに変換して」と頼めば一発。</blockquote>
+<h2>Zaim API の基本情報</h2>
+<ul>
+<li><strong>項目</strong>: ベースURL</li>
+<li><strong>内容</strong>: <code>https://api.zaim.net/v2</code></li>
+</ul>
+<ul>
+<li><strong>項目</strong>: 認証方式</li>
+<li><strong>内容</strong>: OAuth 1.0a（3-legged）</li>
+</ul>
+<ul>
+<li><strong>項目</strong>: データ形式</li>
+<li><strong>内容</strong>: JSON</li>
+</ul>
+<ul>
+<li><strong>項目</strong>: 開発者登録</li>
+<li><strong>内容</strong>: <a href="https://dev.zaim.net/">Zaim Developers Center</a></li>
+</ul>
+<p>Zaim Developers Center でアプリを登録すると、Consumer Key と Consumer Secret が発行されます。</p>
+<p>これを使って OAuth 認証を行い、自分のアカウントの家計簿データにアクセスします。</p>
+<blockquote><strong>注意</strong>: Zaim API の公式ドキュメントはログイン後にのみ閲覧可能です。</blockquote>
+<blockquote>この記事の情報は、公式ドキュメント・各種クライアントライブラリ・実際の API レスポンスを突き合わせて整理したものです。</blockquote>
+<h2>認証フロー</h2>
+<p>OAuth 1.0a の 3-legged フロー。一回やれば終わり。</p>
+<pre><code>
+1. アプリ → Zaim: リクエストトークンを取得
+   POST /v2/auth/request
+
+2. ユーザー → Zaim: ブラウザで認証・認可
+   https://auth.zaim.net/users/auth?oauth_token=...
+
+3. Zaim → アプリ: コールバックURLに認可コード付きでリダイレクト
+
+4. アプリ → Zaim: アクセストークンを取得
+   POST /v2/auth/access
+</code></pre>
+<p>一度アクセストークンを取得すれば、ファイルに保存して使い回せる。有効期限は明示されていないが、実用上は長期間有効。</p>
+<h2>エンドポイント一覧</h2>
+<h3>データ取得（GET）</h3>
+<ul>
+<li><strong>パス</strong>: <code>/v2/home/user/verify</code></li>
+<li><strong>説明</strong>: ユーザー情報</li>
+<li><strong>用途</strong>: 認証確認、ユーザーID取得</li>
+</ul>
+<ul>
+<li><strong>パス</strong>: <code>/v2/home/money</code></li>
+<li><strong>説明</strong>: 入出金データ一覧</li>
+<li><strong>用途</strong>: <strong>メインのデータ取得</strong></li>
+</ul>
+<ul>
+<li><strong>パス</strong>: <code>/v2/home/category</code></li>
+<li><strong>説明</strong>: カテゴリマスタ</li>
+<li><strong>用途</strong>: 支出・収入のカテゴリ一覧</li>
+</ul>
+<ul>
+<li><strong>パス</strong>: <code>/v2/home/genre</code></li>
+<li><strong>説明</strong>: ジャンルマスタ</li>
+<li><strong>用途</strong>: カテゴリの下位分類</li>
+</ul>
+<ul>
+<li><strong>パス</strong>: <code>/v2/home/account</code></li>
+<li><strong>説明</strong>: 口座一覧</li>
+<li><strong>用途</strong>: 銀行・クレカ・電子マネー</li>
+</ul>
+<ul>
+<li><strong>パス</strong>: <code>/v2/currency</code></li>
+<li><strong>説明</strong>: 通貨情報</li>
+<li><strong>用途</strong>: 通貨コード一覧</li>
+</ul>
+<h3>データ作成（POST）</h3>
+<ul>
+<li><strong>パス</strong>: <code>/v2/home/money/payment</code></li>
+<li><strong>説明</strong>: 支出の登録</li>
+</ul>
+<ul>
+<li><strong>パス</strong>: <code>/v2/home/money/income</code></li>
+<li><strong>説明</strong>: 収入の登録</li>
+</ul>
+<ul>
+<li><strong>パス</strong>: <code>/v2/home/money/transfer</code></li>
+<li><strong>説明</strong>: 振替の登録</li>
+</ul>
+<h3>データ更新（PUT）</h3>
+<ul>
+<li><strong>パス</strong>: <code>/v2/home/money/payment/{id}</code></li>
+<li><strong>説明</strong>: 支出の更新</li>
+</ul>
+<ul>
+<li><strong>パス</strong>: <code>/v2/home/money/income/{id}</code></li>
+<li><strong>説明</strong>: 収入の更新</li>
+</ul>
+<h3>データ削除（DELETE）</h3>
+<ul>
+<li><strong>パス</strong>: <code>/v2/home/money/payment/{id}</code></li>
+<li><strong>説明</strong>: 支出の削除</li>
+</ul>
+<ul>
+<li><strong>パス</strong>: <code>/v2/home/money/income/{id}</code></li>
+<li><strong>説明</strong>: 収入の削除</li>
+</ul>
+<ul>
+<li><strong>パス</strong>: <code>/v2/home/money/transfer/{id}</code></li>
+<li><strong>説明</strong>: 振替の削除</li>
+</ul>
+<p><strong>要するに CRUD 全部揃っている。</strong> MoneyForward にはこれがない。</p>
+<hr>
+<h2>各エンドポイントの詳細</h2>
+<h3><code>/v2/home/user/verify</code> — ユーザー情報</h3>
+<p>認証が正しく行われているかの確認。最初にこれを叩いてトークンの有効性を確認するのが定番。</p>
+<pre><code>
+GET /v2/home/user/verify
+</code></pre>
+<hr>
+<h3><code>/v2/home/money</code> — 入出金データ</h3>
+<p><strong>Zaim API の中核。</strong> 家計簿に記録されたすべての取引（支出・収入・振替）を取得できる。</p>
+<p>自動仕分けの起点もここ。未分類の取引を取得 → カテゴリを推定 → <code>PUT</code> で更新、というフローが組める。</p>
+<pre><code>
+GET /v2/home/money?mapping=1&start_date=2024-03-01&end_date=2024-03-31&limit=100
+</code></pre>
+<h4>リクエストパラメータ</h4>
+<ul>
+<li><strong>パラメータ</strong>: <code>mapping</code></li>
+<li><strong>型</strong>: int</li>
+<li><strong>必須</strong>: -</li>
+<li><strong>説明</strong>: <code>1</code> を指定するとカテゴリ名・ジャンル名がレスポンスに展開される<strong>はず</strong>だが、環境によっては展開されないことがある。その場合は <code>/v2/home/category</code> と <code>/v2/home/genre</code> からマスタを取得して自前で結合する</li>
+</ul>
+<ul>
+<li><strong>パラメータ</strong>: <code>category_id</code></li>
+<li><strong>型</strong>: int</li>
+<li><strong>必須</strong>: -</li>
+<li><strong>説明</strong>: 特定カテゴリの取引だけに絞り込み</li>
+</ul>
+<ul>
+<li><strong>パラメータ</strong>: <code>genre_id</code></li>
+<li><strong>型</strong>: int</li>
+<li><strong>必須</strong>: -</li>
+<li><strong>説明</strong>: 特定ジャンルの取引だけに絞り込み</li>
+</ul>
+<ul>
+<li><strong>パラメータ</strong>: <code>type</code></li>
+<li><strong>型</strong>: string</li>
+<li><strong>必須</strong>: -</li>
+<li><strong>説明</strong>: <code>pay</code>（支出）/ <code>income</code>（収入）/ <code>transfer</code>（振替）で絞り込み</li>
+</ul>
+<ul>
+<li><strong>パラメータ</strong>: <code>start_date</code></li>
+<li><strong>型</strong>: string</li>
+<li><strong>必須</strong>: -</li>
+<li><strong>説明</strong>: 取得開始日。<code>YYYY-MM-DD</code> 形式</li>
+</ul>
+<ul>
+<li><strong>パラメータ</strong>: <code>end_date</code></li>
+<li><strong>型</strong>: string</li>
+<li><strong>必須</strong>: -</li>
+<li><strong>説明</strong>: 取得終了日。<code>YYYY-MM-DD</code> 形式</li>
+</ul>
+<ul>
+<li><strong>パラメータ</strong>: <code>limit</code></li>
+<li><strong>型</strong>: int</li>
+<li><strong>必須</strong>: -</li>
+<li><strong>説明</strong>: 1リクエストあたりの取得件数。指定しない場合は全件返る模様（2026年4月実測）。ページネーション時は <code>100</code> 程度を指定するのが無難</li>
+</ul>
+<ul>
+<li><strong>パラメータ</strong>: <code>page</code></li>
+<li><strong>型</strong>: int</li>
+<li><strong>必須</strong>: -</li>
+<li><strong>説明</strong>: ページ番号。<code>limit</code> と組み合わせてページネーションに使う</li>
+</ul>
+<h4>レスポンス（<code>mapping=1</code> 指定時、またはマスタ結合後）</h4>
+<pre><code>
+{
+  "money": [
+    {
+      "id": 12345678,
+      "mode": "payment",
+      "user_id": 1234,
+      "date": "2024-03-20",
+      "amount": 1200,
+      "category_id": 101,
+      "category_name": "食費",
+      "genre_id": 10102,
+      "genre_name": "カフェ",
+      "from_account_id": 0,
+      "to_account_id": 0,
+      "place": "スターバックス",
+      "comment": "ラテ",
+      "name": "",
+      "place_uid": "",
+      "receipt_id": 0,
+      "active": 1,
+      "created": "2024-03-20 12:30:00",
+      "currency_code": "JPY"
+    }
+  ]
+}
+</code></pre>
+<h4>レスポンスフィールド解説</h4>
+<ul>
+<li><strong>フィールド</strong>: <code>id</code></li>
+<li><strong>型</strong>: int</li>
+<li><strong>説明</strong>: 取引の一意ID。更新・削除時に使う</li>
+</ul>
+<ul>
+<li><strong>フィールド</strong>: <code>mode</code></li>
+<li><strong>型</strong>: string</li>
+<li><strong>説明</strong>: 取引種別: <code>payment</code>（支出）/ <code>income</code>（収入）/ <code>transfer</code>（振替）</li>
+</ul>
+<ul>
+<li><strong>フィールド</strong>: <code>user_id</code></li>
+<li><strong>型</strong>: int</li>
+<li><strong>説明</strong>: ユーザーID</li>
+</ul>
+<ul>
+<li><strong>フィールド</strong>: <code>date</code></li>
+<li><strong>型</strong>: string</li>
+<li><strong>説明</strong>: 取引日（YYYY-MM-DD）</li>
+</ul>
+<ul>
+<li><strong>フィールド</strong>: <code>amount</code></li>
+<li><strong>型</strong>: int</li>
+<li><strong>説明</strong>: 金額（正の整数）</li>
+</ul>
+<ul>
+<li><strong>フィールド</strong>: <code>category_id</code></li>
+<li><strong>型</strong>: int</li>
+<li><strong>説明</strong>: カテゴリID</li>
+</ul>
+<ul>
+<li><strong>フィールド</strong>: <code>category_name</code></li>
+<li><strong>型</strong>: string</li>
+<li><strong>説明</strong>: カテゴリ名（<code>mapping=1</code> 時のみ）</li>
+</ul>
+<ul>
+<li><strong>フィールド</strong>: <code>genre_id</code></li>
+<li><strong>型</strong>: int</li>
+<li><strong>説明</strong>: ジャンルID</li>
+</ul>
+<ul>
+<li><strong>フィールド</strong>: <code>genre_name</code></li>
+<li><strong>型</strong>: string</li>
+<li><strong>説明</strong>: ジャンル名（<code>mapping=1</code> 時のみ）</li>
+</ul>
+<ul>
+<li><strong>フィールド</strong>: <code>from_account_id</code></li>
+<li><strong>型</strong>: int</li>
+<li><strong>説明</strong>: 出金元の口座ID（0 = 未設定）</li>
+</ul>
+<ul>
+<li><strong>フィールド</strong>: <code>to_account_id</code></li>
+<li><strong>型</strong>: int</li>
+<li><strong>説明</strong>: 入金先の口座ID（0 = 未設定）</li>
+</ul>
+<ul>
+<li><strong>フィールド</strong>: <code>place</code></li>
+<li><strong>型</strong>: string</li>
+<li><strong>説明</strong>: 店名・場所</li>
+</ul>
+<ul>
+<li><strong>フィールド</strong>: <code>comment</code></li>
+<li><strong>型</strong>: string</li>
+<li><strong>説明</strong>: メモ</li>
+</ul>
+<ul>
+<li><strong>フィールド</strong>: <code>name</code></li>
+<li><strong>型</strong>: string</li>
+<li><strong>説明</strong>: 品名</li>
+</ul>
+<ul>
+<li><strong>フィールド</strong>: <code>place_uid</code></li>
+<li><strong>型</strong>: string</li>
+<li><strong>説明</strong>: 店舗のUID（空文字の場合が多い）</li>
+</ul>
+<ul>
+<li><strong>フィールド</strong>: <code>receipt_id</code></li>
+<li><strong>型</strong>: int</li>
+<li><strong>説明</strong>: レシートID（レシート撮影時に付与）</li>
+</ul>
+<ul>
+<li><strong>フィールド</strong>: <code>active</code></li>
+<li><strong>型</strong>: int</li>
+<li><strong>説明</strong>: 有効フラグ（通常は <code>1</code>）</li>
+</ul>
+<ul>
+<li><strong>フィールド</strong>: <code>created</code></li>
+<li><strong>型</strong>: string</li>
+<li><strong>説明</strong>: 作成日時</li>
+</ul>
+<ul>
+<li><strong>フィールド</strong>: <code>currency_code</code></li>
+<li><strong>型</strong>: string</li>
+<li><strong>説明</strong>: 通貨コード（通常 <code>JPY</code>）</li>
+</ul>
+<h4>ページネーション</h4>
+<pre><code>
+GET /v2/home/money?mapping=1&limit=100&page=1  → 1〜100件目
+GET /v2/home/money?mapping=1&limit=100&page=2  → 101〜200件目
+GET /v2/home/money?mapping=1&limit=100&page=3  → 201〜300件目（0件なら終了）
+</code></pre>
+<p>空の配列が返ったら終了。レスポンスに総件数は含まれないため、空になるまでループする。</p>
+<hr>
+<h3><code>/v2/home/category</code> — カテゴリマスタ</h3>
+<p>支出・収入それぞれのカテゴリ一覧を取得する。</p>
+<pre><code>
+GET /v2/home/category
+</code></pre>
+<h4>主なデフォルト支出カテゴリ</h4>
+<p>ユーザーがカスタムカテゴリを追加している場合は異なる。必ず API から取得して使うこと。</p>
+<ul>
+<li><strong>カテゴリ</strong>: 食費</li>
+<li><strong>説明</strong>: 食料品・外食・カフェなど</li>
+</ul>
+<ul>
+<li><strong>カテゴリ</strong>: 日用品</li>
+<li><strong>説明</strong>: 消耗品・ドラッグストアなど</li>
+</ul>
+<ul>
+<li><strong>カテゴリ</strong>: 交通費</li>
+<li><strong>説明</strong>: 電車・バス・タクシーなど</li>
+</ul>
+<ul>
+<li><strong>カテゴリ</strong>: 通信費</li>
+<li><strong>説明</strong>: 携帯・インターネット・サブスクなど</li>
+</ul>
+<ul>
+<li><strong>カテゴリ</strong>: 教養・教育</li>
+<li><strong>説明</strong>: 書籍・セミナーなど</li>
+</ul>
+<ul>
+<li><strong>カテゴリ</strong>: 趣味・娯楽</li>
+<li><strong>説明</strong>: ゲーム・映画・ガジェットなど</li>
+</ul>
+<ul>
+<li><strong>カテゴリ</strong>: 衣服・美容</li>
+<li><strong>説明</strong>: 服・美容院など</li>
+</ul>
+<ul>
+<li><strong>カテゴリ</strong>: 健康・医療</li>
+<li><strong>説明</strong>: 医療費・薬・ジムなど</li>
+</ul>
+<ul>
+<li><strong>カテゴリ</strong>: 交際費</li>
+<li><strong>説明</strong>: 飲み会・プレゼントなど</li>
+</ul>
+<ul>
+<li><strong>カテゴリ</strong>: 特別な支出</li>
+<li><strong>説明</strong>: 家具・家電・冠婚葬祭など</li>
+</ul>
+<ul>
+<li><strong>カテゴリ</strong>: 住宅</li>
+<li><strong>説明</strong>: 家賃・住宅ローンなど</li>
+</ul>
+<ul>
+<li><strong>カテゴリ</strong>: 水道・光熱</li>
+<li><strong>説明</strong>: 電気・ガス・水道</li>
+</ul>
+<hr>
+<h3><code>/v2/home/genre</code> — ジャンルマスタ</h3>
+<p>カテゴリの下位分類。例えば「食費」カテゴリには:</p>
+<ul>
+<li>食料品</li>
+<li>カフェ</li>
+<li>外食</li>
+<li>コンビニ</li>
+<li>その他食費</li>
+</ul>
+<p>支出を登録・更新する際には、カテゴリID <strong>と</strong> ジャンルID の両方が必要。</p>
+<hr>
+<h3><code>/v2/home/account</code> — 口座一覧</h3>
+<p>Zaim に登録されている口座（銀行口座・クレジットカード・電子マネーなど）の一覧を取得する。</p>
+<p>口座 ID は、支出の登録時に <code>from_account_id</code>（どの口座から払ったか）を指定するのに使う。</p>
+<hr>
+<h3><code>/v2/currency</code> — 通貨情報</h3>
+<p>利用可能な通貨の一覧。日本国内利用では基本的に <code>JPY</code> のみ。</p>
+<hr>
+<h2>データ操作の詳細</h2>
+<h3>支出の登録 — <code>POST /v2/home/money/payment</code></h3>
+<ul>
+<li><strong>パラメータ</strong>: <code>category_id</code></li>
+<li><strong>型</strong>: int</li>
+<li><strong>必須</strong>: <strong>必須</strong></li>
+<li><strong>説明</strong>: カテゴリID</li>
+</ul>
+<ul>
+<li><strong>パラメータ</strong>: <code>genre_id</code></li>
+<li><strong>型</strong>: int</li>
+<li><strong>必須</strong>: <strong>必須</strong></li>
+<li><strong>説明</strong>: ジャンルID</li>
+</ul>
+<ul>
+<li><strong>パラメータ</strong>: <code>amount</code></li>
+<li><strong>型</strong>: int</li>
+<li><strong>必須</strong>: <strong>必須</strong></li>
+<li><strong>説明</strong>: 金額（正の整数）</li>
+</ul>
+<ul>
+<li><strong>パラメータ</strong>: <code>date</code></li>
+<li><strong>型</strong>: string</li>
+<li><strong>必須</strong>: <strong>必須</strong></li>
+<li><strong>説明</strong>: 日付（YYYY-MM-DD）</li>
+</ul>
+<ul>
+<li><strong>パラメータ</strong>: <code>from_account_id</code></li>
+<li><strong>型</strong>: int</li>
+<li><strong>必須</strong>: 任意</li>
+<li><strong>説明</strong>: 引き落とし元の口座ID</li>
+</ul>
+<ul>
+<li><strong>パラメータ</strong>: <code>comment</code></li>
+<li><strong>型</strong>: string</li>
+<li><strong>必須</strong>: 任意</li>
+<li><strong>説明</strong>: メモ</li>
+</ul>
+<ul>
+<li><strong>パラメータ</strong>: <code>place</code></li>
+<li><strong>型</strong>: string</li>
+<li><strong>必須</strong>: 任意</li>
+<li><strong>説明</strong>: 店名・場所</li>
+</ul>
+<ul>
+<li><strong>パラメータ</strong>: <code>name</code></li>
+<li><strong>型</strong>: string</li>
+<li><strong>必須</strong>: 任意</li>
+<li><strong>説明</strong>: 品名</li>
+</ul>
+<blockquote><strong>注意</strong>: POST リクエストではパラメータを <strong>リクエストボディ</strong>（form data）として送るのが正式。Python なら <code>data=</code> を使う。<code>params=</code>（URLクエリ）でも動作する場合があるが、OAuth 1.0a の署名の一貫性のためにも <code>data=</code> を推奨。</blockquote>
+<h3>収入の登録 — <code>POST /v2/home/money/income</code></h3>
+<ul>
+<li><strong>パラメータ</strong>: <code>category_id</code></li>
+<li><strong>型</strong>: int</li>
+<li><strong>必須</strong>: <strong>必須</strong></li>
+<li><strong>説明</strong>: カテゴリID</li>
+</ul>
+<ul>
+<li><strong>パラメータ</strong>: <code>amount</code></li>
+<li><strong>型</strong>: int</li>
+<li><strong>必須</strong>: <strong>必須</strong></li>
+<li><strong>説明</strong>: 金額</li>
+</ul>
+<ul>
+<li><strong>パラメータ</strong>: <code>date</code></li>
+<li><strong>型</strong>: string</li>
+<li><strong>必須</strong>: <strong>必須</strong></li>
+<li><strong>説明</strong>: 日付</li>
+</ul>
+<ul>
+<li><strong>パラメータ</strong>: <code>to_account_id</code></li>
+<li><strong>型</strong>: int</li>
+<li><strong>必須</strong>: 任意</li>
+<li><strong>説明</strong>: 入金先の口座ID</li>
+</ul>
+<ul>
+<li><strong>パラメータ</strong>: <code>comment</code></li>
+<li><strong>型</strong>: string</li>
+<li><strong>必須</strong>: 任意</li>
+<li><strong>説明</strong>: メモ</li>
+</ul>
+<p>収入の登録では <code>genre_id</code> は不要。</p>
+<h3>振替の登録 — <code>POST /v2/home/money/transfer</code></h3>
+<p>口座間の資金移動を記録する。</p>
+<ul>
+<li><strong>パラメータ</strong>: <code>amount</code></li>
+<li><strong>型</strong>: int</li>
+<li><strong>必須</strong>: <strong>必須</strong></li>
+<li><strong>説明</strong>: 金額</li>
+</ul>
+<ul>
+<li><strong>パラメータ</strong>: <code>date</code></li>
+<li><strong>型</strong>: string</li>
+<li><strong>必須</strong>: <strong>必須</strong></li>
+<li><strong>説明</strong>: 日付</li>
+</ul>
+<ul>
+<li><strong>パラメータ</strong>: <code>from_account_id</code></li>
+<li><strong>型</strong>: int</li>
+<li><strong>必須</strong>: <strong>必須</strong>（実質）</li>
+<li><strong>説明</strong>: 出金元の口座ID。口座IDなしだと400エラーになる（2026年4月実測）</li>
+</ul>
+<ul>
+<li><strong>パラメータ</strong>: <code>to_account_id</code></li>
+<li><strong>型</strong>: int</li>
+<li><strong>必須</strong>: <strong>必須</strong>（実質）</li>
+<li><strong>説明</strong>: 入金先の口座ID</li>
+</ul>
+<ul>
+<li><strong>パラメータ</strong>: <code>comment</code></li>
+<li><strong>型</strong>: string</li>
+<li><strong>必須</strong>: 任意</li>
+<li><strong>説明</strong>: メモ</li>
+</ul>
+<h3>更新 — <code>PUT /v2/home/money/{mode}/{id}</code></h3>
+<p>変更したいフィールドだけ送ればOK。<strong>未分類取引の自動仕分けで最も使うエンドポイント。</strong></p>
+<p>よくある使い方:</p>
+<ul>
+<li>未分類の取引にカテゴリ・ジャンルを付ける</li>
+<li>メモや店名を追記する</li>
+<li>金額の修正</li>
+</ul>
+<h3>削除 — <code>DELETE /v2/home/money/{mode}/{id}</code></h3>
+<p>取引を削除する。取り消し不可。</p>
+<hr>
+<h2>API でできること・できないこと</h2>
+<h3>できること</h3>
+<ul>
+<li>入出金データの CRUD（取得・作成・更新・削除）</li>
+<li>カテゴリ・ジャンル・口座のマスタ取得</li>
+<li>日付範囲やカテゴリでの絞り込み</li>
+<li>ページネーションによる全件取得</li>
+<li>振替（口座間移動）の記録</li>
+</ul>
+<h3>できないこと</h3>
+<ul>
+<li><strong>機能</strong>: 月次サマリーの直接取得</li>
+<li><strong>状況</strong>: API 未提供</li>
+<li><strong>回避策</strong>: 生データを取得して自前で集計（Claude Code が得意）</li>
+</ul>
+<ul>
+<li><strong>機能</strong>: 予算の取得・設定</li>
+<li><strong>状況</strong>: API 未提供</li>
+<li><strong>回避策</strong>: ローカルで JSON 管理すれば十分</li>
+</ul>
+<ul>
+<li><strong>機能</strong>: 繰り返し設定（定期支出）</li>
+<li><strong>状況</strong>: API 未提供</li>
+<li><strong>回避策</strong>: —</li>
+</ul>
+<ul>
+<li><strong>機能</strong>: レシート画像の取得</li>
+<li><strong>状況</strong>: API 未提供</li>
+<li><strong>回避策</strong>: <code>receipt_id</code> はあるが画像は取れない</li>
+</ul>
+<ul>
+<li><strong>機能</strong>: 他ユーザーのデータ</li>
+<li><strong>状況</strong>: 自分のデータのみ</li>
+<li><strong>回避策</strong>: —</li>
+</ul>
+<ul>
+<li><strong>機能</strong>: カテゴリ・ジャンルの作成</li>
+<li><strong>状況</strong>: 取得のみ</li>
+<li><strong>回避策</strong>: Zaim アプリから作成</li>
+</ul>
+<ul>
+<li><strong>機能</strong>: 未登録店舗の明細登録</li>
+<li><strong>状況</strong>: API だと辛い場合がある</li>
+<li><strong>回避策</strong>: Claude Code のデスクトップ版で Web UI を操作させる手もある</li>
+</ul>
+<ul>
+<li><strong>機能</strong>: 銀行自動連携の管理</li>
+<li><strong>状況</strong>: API 未提供</li>
+<li><strong>回避策</strong>: —</li>
+</ul>
+<p><strong>「できないこと」のほとんどは、Claude Code を組み合わせれば回避できる。</strong> データさえ取れれば分析・集計は AI の領域。予算管理もローカルの JSON で十分だし、Web UI でしかできない操作はデスクトップ版 Claude Code に触らせればいい。</p>
+<hr>
+<h2>実践 Tips</h2>
+<h3>1. <code>mapping=1</code> は常に付ける</h3>
+<p>ID だけ返されても使いにくい。<code>mapping=1</code> を付けるとカテゴリ名・ジャンル名が展開されるはずだが、<strong>実際には展開されないケースがある</strong>（2026年4月時点で確認）。確実に名前を得たい場合は、<code>/v2/home/category</code> と <code>/v2/home/genre</code> からマスタを取得して自前で結合する。CCZaim の <code>enrich_items()</code> がこれを自動でやっている。</p>
+<h3>2. 全件取得はページネーションで</h3>
+<pre><code>
+all_items = []
+page = 1
+while True:
+    data = get_money(session, limit=100, page=page, start_date="2024-01-01")
+    items = data.get("money", [])
+    if not items:
+        break
+    all_items.extend(items)
+    page += 1
+</code></pre>
+<h3>3. POST は body で送るのが安全</h3>
+<p>GET はクエリパラメータ、POST/PUT はリクエストボディ。</p>
+<p>Python の <code>requests</code> なら <code>data=</code> を使うのが推奨。<code>params=</code> でも動作する場合があるが、OAuth 署名の安定性のために <code>data=</code> が無難。</p>
+<h3>4. カテゴリ ID はハードコードしない</h3>
+<p>ユーザーごとに異なる場合がある。毎回 API から取得してマッピングするのが安全。</p>
+<h3>5. レート制限に注意</h3>
+<p>公式にレート制限の仕様は公開されていない。ページネーションのループ時は適度に間隔を空けるのが無難。</p>
+<hr>
+<h2>MoneyForward との比較</h2>
+<ul>
+<li><strong>項目</strong>: API 公開</li>
+<li><strong>MoneyForward</strong>: <strong>なし</strong></li>
+<li><strong>Zaim</strong>: <strong>あり（CRUD全部）</strong></li>
+</ul>
+<ul>
+<li><strong>項目</strong>: 銀行自動連携</li>
+<li><strong>MoneyForward</strong>: あり</li>
+<li><strong>Zaim</strong>: あり</li>
+</ul>
+<ul>
+<li><strong>項目</strong>: 自動仕分け</li>
+<li><strong>MoneyForward</strong>: 微妙</li>
+<li><strong>Zaim</strong>: API + AI で自作可能</li>
+</ul>
+<ul>
+<li><strong>項目</strong>: 月額費用</li>
+<li><strong>MoneyForward</strong>: プレミアム: 月500円〜</li>
+<li><strong>Zaim</strong>: 無料プランでもAPI利用可能</li>
+</ul>
+<ul>
+<li><strong>項目</strong>: Web UI</li>
+<li><strong>MoneyForward</strong>: きれい</li>
+<li><strong>Zaim</strong>: 正直ダサい（でもAPIがあれば問題ない）</li>
+</ul>
+<ul>
+<li><strong>項目</strong>: データエクスポート</li>
+<li><strong>MoneyForward</strong>: CSV</li>
+<li><strong>Zaim</strong>: CSV + API</li>
+</ul>
+<ul>
+<li><strong>項目</strong>: カスタマイズ性</li>
+<li><strong>MoneyForward</strong>: 低い</li>
+<li><strong>Zaim</strong>: API経由で何でもできる</li>
+</ul>
+<p>MoneyForward が優れているのは Web UI の完成度。でも「自分のデータを自分のプログラムで触りたい」なら Zaim 一択。</p>
+<hr>
+<h2>関連リンク</h2>
+<ul>
+<li><a href="https://dev.zaim.net/">Zaim Developers Center</a> — 公式の開発者ポータル</li>
+<li><a href="https://zaim.net/">Zaim</a> — 家計簿アプリ本体</li>
+<li><a href="https://github.com/nyanko3141592/CCZaim">CCZaim</a> — Claude Code で Zaim を操作するツールキット</li>
+<li><a href="https://github.com/liebe-magi/pyzaim">pyzaim</a> — Python クライアントライブラリ</li>
+<li><a href="https://github.com/hotchemi/zaim.js/">zaim.js</a> — Node.js クライアントライブラリ</li>
+<li><a href="https://github.com/s-sasaki-0529/go-zaim">go-zaim</a> — Go クライアントライブラリ</li>
+</ul>
